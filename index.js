@@ -4,8 +4,10 @@ dotenv.config();
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
-const SOURCE_CHANNEL = '1431695147426644179';
-const DEST_CHANNEL = '1416917458316558356';
+// === Channels ===
+const SOURCE_CHANNEL = '1416907131373883462';  // Channel to use /submit-media
+const DEST_CHANNEL = '1431695147426644179';   // Channel to send media/embed
+// ==================
 
 const pendingUpload = new Map();
 
@@ -19,7 +21,8 @@ rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: commands });
 
 client.on('interactionCreate', async interaction => {
   if (interaction.isChatInputCommand() && interaction.commandName === 'submit-media') {
-    if (interaction.channelId !== SOURCE_CHANNEL) return interaction.reply({ content: '⚠ Use this command only in the designated channel.', ephemeral: true });
+    if (interaction.channelId !== SOURCE_CHANNEL)
+      return interaction.reply({ content: '⚠ You can use this command only in the designated channel.', ephemeral: true });
 
     const buttons = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('activity').setLabel('Activity').setEmoji('🎮').setStyle(ButtonStyle.Primary),
@@ -27,7 +30,7 @@ client.on('interactionCreate', async interaction => {
       new ButtonBuilder().setCustomId('event').setLabel('Event').setEmoji('🎉').setStyle(ButtonStyle.Secondary)
     );
 
-    await interaction.reply({ content: '📤 Choose a category:', components: [buttons], ephemeral: true });
+    await interaction.reply({ content: '📤 Please choose a category:', components: [buttons], ephemeral: true });
   }
 
   if (interaction.isButton() && ['activity','roleplay','event'].includes(interaction.customId)) {
@@ -48,7 +51,7 @@ client.on('interactionCreate', async interaction => {
         new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('title').setLabel('Roleplay Title').setStyle(TextInputStyle.Short).setRequired(true)),
         new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('date').setLabel('Date').setStyle(TextInputStyle.Short).setRequired(true)),
         new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('participants').setLabel('Participants').setStyle(TextInputStyle.Short).setRequired(true)),
-        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('desc').setLabel('Description').setStyle(TextInputStyle.Paragraph).setRequired(true))
+        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('description').setLabel('Description').setStyle(TextInputStyle.Paragraph).setRequired(true))
       );
     }
 
@@ -58,7 +61,7 @@ client.on('interactionCreate', async interaction => {
         new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('date').setLabel('Date').setStyle(TextInputStyle.Short).setRequired(true)),
         new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('prize').setLabel('Prize').setStyle(TextInputStyle.Short).setRequired(true)),
         new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('winner').setLabel('Winner').setStyle(TextInputStyle.Short).setRequired(true)),
-        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('hoster').setLabel('Hoster (LWS)').setStyle(TextInputStyle.Short).setRequired(true))
+        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('hoster').setLabel('Hoster').setStyle(TextInputStyle.Short).setRequired(true))
       );
     }
 
@@ -67,11 +70,11 @@ client.on('interactionCreate', async interaction => {
   }
 
   if (interaction.isModalSubmit()) {
-    const cat = interaction.customId.replace('modal_','');
-    pendingUpload.set(interaction.user.id,{category: cat, data: interaction.fields.fields, ready:false});
+    const category = interaction.customId.replace('modal_','');
+    pendingUpload.set(interaction.user.id, { category, data: interaction.fields.fields, ready: false });
 
     const uploadButton = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('ready_upload').setLabel('Yes, I\'m ready to upload').setEmoji('📸').setStyle(ButtonStyle.Primary)
+      new ButtonBuilder().setCustomId('ready_upload').setLabel("Yes, I'm ready to upload").setEmoji('📸').setStyle(ButtonStyle.Primary)
     );
 
     await interaction.reply({ content: 'Hey, are you ready to upload your screenshots?', components: [uploadButton], ephemeral: true });
@@ -81,19 +84,19 @@ client.on('interactionCreate', async interaction => {
     const userData = pendingUpload.get(interaction.user.id);
     if(!userData) return;
     userData.ready = true;
-    pendingUpload.set(interaction.user.id,userData);
+    pendingUpload.set(interaction.user.id, userData);
 
     await interaction.update({ content: '✅ Great! Please upload your screenshots below.', components: [], ephemeral: true });
   }
 });
 
 client.on('messageCreate', async message => {
-  if(message.author.bot) return;
+  if (message.author.bot) return;
 
   const userData = pendingUpload.get(message.author.id);
   if(!userData || !userData.ready) return;
 
-  if(message.attachments.size > 0){
+  if (message.attachments.size > 0) {
     pendingUpload.delete(message.author.id);
     await message.react('✅');
 
@@ -101,15 +104,15 @@ client.on('messageCreate', async message => {
 
     const embed = new EmbedBuilder()
       .setTitle(`New ${userData.category.toUpperCase()} Submission`)
-      .setAuthor({name: message.author.tag, iconURL: message.author.displayAvatarURL()})
+      .setAuthor({ name: message.author.tag, iconURL: message.author.displayAvatarURL() })
       .setColor('Blue')
       .setTimestamp();
 
     userData.data.forEach((input,key)=>{
-      embed.addFields({name:key.toUpperCase(), value:input.value});
+      embed.addFields({ name:key.toUpperCase(), value:input.value });
     });
 
-    await destChannel.send({embeds:[embed], files:[...message.attachments.values()]});
+    await destChannel.send({ embeds: [embed], files: [...message.attachments.values()] });
   }
 });
 
